@@ -24,7 +24,7 @@ except ImportError:
     from PyQt4.QtGui import *
     from PyQt4.QtCore import *
 
-import resources
+import libs.resources
 # Add internal libs
 from libs.constants import *
 from libs.dicom_dialog import DICOMDialog
@@ -1194,6 +1194,19 @@ class MainWindow(QMainWindow, WindowMixin):
         images.sort(key=lambda x: x.lower())
         return images
 
+    def scanDICOMImages(self, folderPath):
+        extensions = '.dcm'
+        images = []
+
+        for root, dirs, files in os.walk(folderPath):
+            for file in files:
+                if file.lower().endswith(tuple(extensions)):
+                    relativePath = os.path.join(root, file)
+                    path = ustr(os.path.abspath(relativePath))
+                    images.append(path)
+        images.sort(key=lambda x: x.lower())
+        return images
+
     def changeSavedirDialog(self, _value=False):
         if self.defaultSaveDir is not None:
             path = ustr(self.defaultSaveDir)
@@ -1267,40 +1280,11 @@ class MainWindow(QMainWindow, WindowMixin):
         if len(series_infos) == 0:
             return
 
-        self.dicomDialog = DICOMDialog(parent=self, listItem=[s.to_str() for s in series_infos])
-
-        selected_idx = self.dicomDialog.popUp()
-        if selected_idx is None:
-            return
-        selected_series = series_infos[selected_idx]
-        self.mImgList = selected_series.sorted_paths()
-
+        self.mImgList = self.scanDICOMImages(dirpath)
         self.openNextImg()
         for imgPath in self.mImgList:
             item = QListWidgetItem(imgPath)
             self.fileListWidget.addItem(item)
-
-        if len(self.mImgList) > 0:
-            example_path = self.mImgList[0]
-            base_dir = os.path.dirname(example_path)
-
-            # Print report if present
-            try:
-                with open(os.path.join(base_dir, REPORT_FILENAME), 'r') as fh:
-                    print('\n' * 20)
-                    print('Report:\n{}'.format(fh.read()))
-            except (IOError, OSError) as e:
-                print(e.message)
-                pass
-
-            # Change default save dir
-            save_dir = os.path.join(base_dir, BBOX_DIR_NAME)
-            try:
-                os.makedirs(save_dir)
-            except (IOError, OSError) as _:
-                pass
-            print('Default save dir changed to: {}'.format(save_dir))
-            self.defaultSaveDir = save_dir
 
     def importDirImages(self, dirpath):
         if not self.mayContinue() or not dirpath:
